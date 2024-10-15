@@ -1,0 +1,18 @@
+{
+  "name": "program",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "build": "rm -rf dist && tsc",
+    "dev": "NODE_ENV=development LOCAL_SQS_URL=http://localhost:4566/000000000000 ts-node-dev -r dotenv/config ./src/index.ts",
+    "start": "NODE_ENV=production node -r dotenv/config ./dist/index.js",
+    "lint": "eslint . --ext .ts --config ./.eslintrc.js"
+  },
+  "devDependencies": {
+    "@package/eslint-config": "*",
+    "@package/typescript-config": "*",
+    "@types/node": "^22.7.5",
+    "typescript": "5.4.5"
+  },
+  "packageManager": "yarn@4.5.0"
+}
