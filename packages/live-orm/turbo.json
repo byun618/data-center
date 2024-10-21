@@ -1,0 +1,25 @@
+{
+  "extends": ["//"],
+  "tasks": {
+    "dev": {
+      "env": [
+        "NODE_ENV",
+        "RDS_HOST",
+        "RDS_PORT",
+        "RDS_USER",
+        "RDS_PASSWORD",
+        "LOGGING"
+      ]
+    },
+    "start": {
+      "env": [
+        "NODE_ENV",
+        "RDS_HOST",
+        "RDS_PORT",
+        "RDS_USER",
+        "RDS_PASSWORD",
+        "LOGGING"
+      ]
+    }
+  }
+}
