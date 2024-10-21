@@ -9,10 +9,10 @@ import {
 
 const sequelize = new Sequelize({
   dialect: 'mysql',
-  username: String(process.env.RDS_USER),
-  password: String(process.env.RDS_PASSWORD),
-  host: String(process.env.RDS_HOST),
-  port: Number(process.env.RDS_PORT),
+  username: String(process.env.LIVE_RDS_USER),
+  password: String(process.env.LIVE_RDS_PASSWORD),
+  host: String(process.env.LIVE_RDS_HOST),
+  port: Number(process.env.LIVE_RDS_PORT),
   pool: {
     max: 100,
     min: 0,
