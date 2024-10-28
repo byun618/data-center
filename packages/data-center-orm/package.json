@@ -1,0 +1,22 @@
+{
+  "name": "@package/data-center-orm",
+  "version": "0.0.1",
+  "private": true,
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsup",
+    "lint": "eslint . --ext .ts --config ./.eslintrc.js"
+  },
+  "dependencies": {
+    "mysql2": "^3.11.3",
+    "sequelize": "^6.37.4"
+  },
+  "devDependencies": {
+    "@package/eslint-config": "*",
+    "@package/typescript-config": "*",
+    "@types/node": "^22.7.6",
+    "tsup": "^8.3.0",
+    "typescript": "5.4.5"
+  },
+  "packageManager": "yarn@4.5.0"
+}

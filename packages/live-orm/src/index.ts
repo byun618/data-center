@@ -29,7 +29,7 @@ export const schemas = ['ncnc_pro', 'payment']
  * 스키마의 테이블 목록을 가져옵니다.
  */
 export const getTables = async (schema: string) => {
-  return sequelize.query(
+  const tables = await sequelize.query<Table>(
     `
     SELECT
         TABLE_SCHEMA
@@ -44,6 +44,12 @@ export const getTables = async (schema: string) => {
       type: QueryTypes.SELECT,
     },
   )
+
+  return tables.map((table) => ({
+    schema: table.TABLE_SCHEMA,
+    name: table.TABLE_NAME,
+    comment: table.TABLE_COMMENT,
+  }))
 }
 
 /**
@@ -68,9 +74,9 @@ export const getTable = async (schema: string, tableName: string) => {
   )
 
   return {
-    tableSchema: table.TABLE_SCHEMA,
-    tableName: table.TABLE_NAME,
-    tableComment: table.TABLE_COMMENT,
+    schema: table.TABLE_SCHEMA,
+    name: table.TABLE_NAME,
+    comment: table.TABLE_COMMENT,
   }
 }
 
@@ -105,59 +111,23 @@ export const getColumns = async (schema: string, tableName: string) => {
   return columns.map((column) => ({
     tableSchema: column.TABLE_SCHEMA,
     tableName: column.TABLE_NAME,
-    columnName: column.COLUMN_NAME,
-    isNullable: column.IS_NULLABLE,
-    dataType: column.DATA_TYPE,
-    columnType: column.COLUMN_TYPE,
-    columnKey: column.COLUMN_KEY,
-    columnComment: column.COLUMN_COMMENT,
+    name: column.COLUMN_NAME,
+    isNullable: column.IS_NULLABLE === 'YES',
+    dataType: column.COLUMN_TYPE,
+    comment: column.COLUMN_COMMENT,
   }))
 }
 
 /**
- * 테이블의 키를 가져옵니다.
+ * 테이블의 제약 조건을 가져옵니다.
  */
-export const getKeys = async (schema: string, tableName: string) => {
-  const keys = await sequelize.query<TableConstraint & KeyColumnUsage>(
+export const getConstraints = async (schema: string, tableName: string) => {
+  const constraints = await sequelize.query<TableConstraint & KeyColumnUsage>(
     `
     SELECT
         TABLE_CONSTRAINTS.TABLE_SCHEMA
       , TABLE_CONSTRAINTS.TABLE_NAME
-      , TABLE_CONSTRAINTS.CONSTRAINT_NAME
-      , TABLE_CONSTRAINTS.CONSTRAINT_TYPE
-    FROM
-        information_schema.TABLE_CONSTRAINTS
-        LEFT JOIN information_schema.KEY_COLUMN_USAGE
-            ON TABLE_CONSTRAINTS.TABLE_SCHEMA = KEY_COLUMN_USAGE.TABLE_SCHEMA
-                AND TABLE_CONSTRAINTS.TABLE_NAME = KEY_COLUMN_USAGE.TABLE_NAME
-                AND TABLE_CONSTRAINTS.CONSTRAINT_NAME = KEY_COLUMN_USAGE.CONSTRAINT_NAME
-    WHERE
-          TABLE_CONSTRAINTS.TABLE_SCHEMA = '${schema}'
-      AND TABLE_CONSTRAINTS.TABLE_NAME = '${tableName}'
-      AND TABLE_CONSTRAINTS.CONSTRAINT_TYPE != 'FOREIGN KEY'
-    `,
-    {
-      type: QueryTypes.SELECT,
-    },
-  )
-
-  return keys.map((key) => ({
-    tableSchema: key.TABLE_SCHEMA,
-    tableName: key.TABLE_NAME,
-    constraintName: key.CONSTRAINT_NAME,
-    constraintType: key.CONSTRAINT_TYPE,
-  }))
-}
-
-/**
- * 테이블의 외래키를 가져옵니다.
- */
-export const getForeignKeys = async (schema: string, tableName: string) => {
-  const foreignKeys = await sequelize.query<TableConstraint & KeyColumnUsage>(
-    `
-    SELECT
-        TABLE_CONSTRAINTS.TABLE_SCHEMA
-      , TABLE_CONSTRAINTS.TABLE_NAME
+      , KEY_COLUMN_USAGE.COLUMN_NAME
       , TABLE_CONSTRAINTS.CONSTRAINT_NAME
       , TABLE_CONSTRAINTS.CONSTRAINT_TYPE
       , KEY_COLUMN_USAGE.REFERENCED_TABLE_SCHEMA
@@ -172,21 +142,21 @@ export const getForeignKeys = async (schema: string, tableName: string) => {
     WHERE
           TABLE_CONSTRAINTS.TABLE_SCHEMA = '${schema}'
       AND TABLE_CONSTRAINTS.TABLE_NAME = '${tableName}'
-      AND TABLE_CONSTRAINTS.CONSTRAINT_TYPE = 'FOREIGN KEY'
     `,
     {
       type: QueryTypes.SELECT,
     },
   )
 
-  return foreignKeys.map((foreignKey) => ({
-    tableSchema: foreignKey.TABLE_SCHEMA,
-    tableName: foreignKey.TABLE_NAME,
-    constraintName: foreignKey.CONSTRAINT_NAME,
-    constraintType: foreignKey.CONSTRAINT_TYPE,
-    referencedTableSchema: foreignKey.REFERENCED_TABLE_SCHEMA,
-    referencedTableName: foreignKey.REFERENCED_TABLE_NAME,
-    referencedColumnName: foreignKey.REFERENCED_COLUMN_NAME,
+  return constraints.map((constraint) => ({
+    name: constraint.CONSTRAINT_NAME,
+    type: constraint.CONSTRAINT_TYPE,
+    tableSchema: constraint.TABLE_SCHEMA,
+    tableName: constraint.TABLE_NAME,
+    columnName: constraint.COLUMN_NAME,
+    referencedTableSchema: constraint.REFERENCED_TABLE_SCHEMA,
+    referencedTableName: constraint.REFERENCED_TABLE_NAME,
+    referencedColumnName: constraint.REFERENCED_COLUMN_NAME,
   }))
 }
 
@@ -194,13 +164,13 @@ export const getForeignKeys = async (schema: string, tableName: string) => {
  * 테이블의 인덱스를 가져옵니다.
  */
 export const getIndexes = async (schema: string, tableName: string) => {
-  const rawIndexes = await sequelize.query<Statistic>(
+  const indexes = await sequelize.query<Statistic>(
     `
     SELECT
         STATISTICS.TABLE_SCHEMA,
         STATISTICS.TABLE_NAME,
-        STATISTICS.INDEX_NAME,
-        STATISTICS.COLUMN_NAME
+        STATISTICS.COLUMN_NAME,
+        STATISTICS.INDEX_NAME
     FROM
         information_schema.STATISTICS
     WHERE
@@ -212,36 +182,44 @@ export const getIndexes = async (schema: string, tableName: string) => {
     },
   )
 
-  const indexes = Object.values(
-    rawIndexes.reduce<
-      Record<
-        string,
-        {
-          TABLE_SCHEMA: string
-          TABLE_NAME: string
-          INDEX_NAME: string
-          COLUMN_NAMES: string[]
-        }
-      >
-    >((acc, cur) => {
-      const { TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, COLUMN_NAME } = cur
-      if (!acc[INDEX_NAME]) {
-        acc[INDEX_NAME] = {
-          TABLE_SCHEMA,
-          TABLE_NAME,
-          INDEX_NAME,
-          COLUMN_NAMES: [],
-        }
-      }
-      acc[INDEX_NAME].COLUMN_NAMES.push(COLUMN_NAME)
-      return acc
-    }, {}),
-  )
-
   return indexes.map((index) => ({
     tableSchema: index.TABLE_SCHEMA,
     tableName: index.TABLE_NAME,
-    indexName: index.INDEX_NAME,
-    columnNames: index.COLUMN_NAMES,
+    columnName: index.COLUMN_NAME,
+    name: index.INDEX_NAME,
   }))
+
+  // group by 할 일 있다면 아래와 같이
+  // const indexes = Object.values(
+  //   rawIndexes.reduce<
+  //     Record<
+  //       string,
+  //       {
+  //         TABLE_SCHEMA: string
+  //         TABLE_NAME: string
+  //         INDEX_NAME: string
+  //         COLUMN_NAMES: string[]
+  //       }
+  //     >
+  //   >((acc, cur) => {
+  //     const { TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, COLUMN_NAME } = cur
+  //     if (!acc[INDEX_NAME]) {
+  //       acc[INDEX_NAME] = {
+  //         TABLE_SCHEMA,
+  //         TABLE_NAME,
+  //         INDEX_NAME,
+  //         COLUMN_NAMES: [],
+  //       }
+  //     }
+  //     acc[INDEX_NAME].COLUMN_NAMES.push(COLUMN_NAME)
+  //     return acc
+  //   }, {}),
+  // )
+
+  // return indexes.map((index) => ({
+  //   tableSchema: index.TABLE_SCHEMA,
+  //   tableName: index.TABLE_NAME,
+  //   name: index.INDEX_NAME,
+  //   columnNames: index.COLUMN_NAMES,
+  // }))
 }
